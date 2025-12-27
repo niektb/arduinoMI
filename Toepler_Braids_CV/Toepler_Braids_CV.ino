@@ -14,14 +14,16 @@
 */
 
 bool debug = false;
+bool autoTrigger = true;
+
+#include <Adafruit_NeoPixel.h>
+Adafruit_NeoPixel strip(2, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 #include <Arduino.h>
 #include "stdio.h"
 #include "pico/stdlib.h"
 #include "hardware/sync.h"
 #include "potentiometer.h"
-
-long midiTimer;
 
 float pitch;
 float pitch_offset = 38;
@@ -47,9 +49,9 @@ float mapping_lower_limit = 0.0;
 #include <BRAIDS.h>
 #include "braids.h"
 
-
 #include <Bounce2.h>
 Bounce2::Button button = Bounce2::Button();
+bool longPress = false;
 
 PWMAudio DAC(PWMOUT);  // 16 bit PWM audio
 
@@ -95,15 +97,12 @@ void cb() {
   }
 }
 
-
 void voct_midi(int cv_in) {
   pitch = map(potvalue[cv_in], 0.0, 4095.0, mapping_upper_limit, 0.0);  // convert pitch CV data value to a MIDI note number
-
   pitch = pitch - pitch_offset;  // pitch offset drops this octaves down
 
-  if (debug) Serial.println(pitch);
-
-  if (pitch > 68) pitch = pitch - 1;  //adc correction
+  if (pitch > 68) 
+    pitch = pitch - 1;  //adc correction
 
   pitch_in = pitch;
   if (pitch != previous_pitch) {
@@ -118,6 +117,14 @@ void setup() {
     Serial.begin(57600);
     Serial.println(F("YUP"));
   }
+
+  strip.begin();
+  strip.setBrightness(50);
+  strip.setPixelColor(0, strip.Color(engineCount * 5, 0, 255 - (engineCount * 5)));
+  strip.setPixelColor(1, strip.Color(255 * autoTrigger, 0, 255 * autoTrigger));
+  strip.show();
+
+  delay(10);
 
   analogReadResolution(12);
   // this is to switch to PWM for power to avoid ripple noise
@@ -164,7 +171,6 @@ void setup() {
   morph_in = morph;
 }
 
-
 void loop() {
   if (counter > 0) {
     updateBraidsAudio();
@@ -189,12 +195,30 @@ void loop1() {
   voct_midi(2);
 
   button.update();
-  if (button.pressed()) {
-    engineCount++;
-    if (engineCount > 46) {
-      engineCount = 0;
+
+  if (button.read() == 0) {
+    if (button.currentDuration() > 1000) {
+      longPress = true;
     }
-    engine_in = engineCount;
+  }
+
+  if (button.released()) {
+    if (longPress) {
+      // long press
+      longPress = false;
+      autoTrigger = !autoTrigger;
+      strip.setPixelColor(1, strip.Color(255 * autoTrigger, 0, 255 * autoTrigger));
+      strip.show();
+    } else {
+      // short press
+      engineCount++;
+      if (engineCount > 46) {
+        engineCount = 0;
+      }
+      engine_in = engineCount;
+      strip.setPixelColor(0, strip.Color(engineCount * 5, 0, 255 - (engineCount * 5)));
+      strip.show();
+    }
   }
 
   // reading A/D seems to cause noise in the audio so don't do it too often

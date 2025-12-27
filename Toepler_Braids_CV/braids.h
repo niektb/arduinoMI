@@ -97,7 +97,7 @@ void updateBraidsAudio() {
   bool trigger_flag = (trigger && (!voices[0].last_trig));
   voices[0].last_trig = trigger;
 
-  if (trigger) {
+  if (trigger && autoTrigger) {
     osc->Strike();
     voices[0].envelope->Trigger(braids::ENV_SEGMENT_ATTACK);
     trigger_in = 0.0f;
@@ -105,7 +105,7 @@ void updateBraidsAudio() {
 
   osc->Render(sync_buffer, buffer, size);
 
-  int32_t gain = ad_value;
+  int32_t gain = autoTrigger ? ad_value : 65536;
 
   for (size_t i = 0; i < kBlockSize; ++i) {
     int16_t sample = buffer[i] * gain_lp >> 16;
