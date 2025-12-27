@@ -2,7 +2,6 @@
 
 // braids dsp
 
-//const uint16_t decimation_factors[] = { 1, 2, 3, 4, 6, 12, 24 };
 const uint16_t bit_reduction_masks[] = {
   0xffff,
   0xfff0,
@@ -17,8 +16,6 @@ const uint16_t bit_reduction_masks[] = {
 #define     BLOCK_SIZE          32      // --> macro_oscillator.h !
 #define     SAMP_SCALE          (float)(1.0 / 32756.0)
 
-
-
 typedef struct
 {
   braids::MacroOscillator *osc;
@@ -31,9 +28,7 @@ typedef struct
 
 char shared_buffer[16384];
 
-//float a0 = (440.0 / 8.0) / kSampleRate; //48000.00;
 const size_t   kBlockSize = BLOCK_SIZE;
-
 
 struct Unit {
   braids::Quantizer   *quantizer;
@@ -71,10 +66,7 @@ float morph_mod = 0.0f; //IN(9);
 float decay_in = 0.5f; // IN(10);
 float lpg_in = 0.1f ;// IN(11);
 
-
-
 void updateBraidsAudio() {
-
 
   int16_t *buffer = voices[0].pd.buffer;
   uint8_t *sync_buffer = voices[0].pd.sync_buffer;
@@ -82,9 +74,7 @@ void updateBraidsAudio() {
 
   braids::MacroOscillator *osc = voices[0].pd.osc;
   
-  //osc->set_pitch( ( pitch_in - pitch_adj)  + pitch_fm ); // << 7);
   osc->set_pitch( pitch_in << 7);
-
   osc->set_parameters(timbre_in, morph_in);
 
   // set shape/model
@@ -101,12 +91,8 @@ void updateBraidsAudio() {
     osc->Strike();
     trigger_in = 0.0f;
   }
-  
-  // render
-  //for (int count = 0; count < 32; count += size) {
-  osc->Render(sync_buffer, buffer, size);
-  //}
 
+  osc->Render(sync_buffer, buffer, size);
 }
 
 // initialize macro osc
@@ -121,7 +107,6 @@ void initVoices() {
   voices[0].pd.osc->Init(48000.f);
   voices[0].pd.osc->set_pitch((48 << 7));
   voices[0].pd.osc->set_shape(braids::MACRO_OSC_SHAPE_VOWEL_FOF);
-
 
   voices[0].ws = new braids::SignatureWaveshaper;
   voices[0].ws->Init(123774);
@@ -143,32 +128,6 @@ void initVoices() {
 
   // get some samples initially
   updateBraidsAudio();
-
-  /*
-    // Initialize the sample rate converter
-    int error;
-    int converter = SRC_SINC_FASTEST;       //SRC_SINC_MEDIUM_QUALITY;
-
-
-         // check resample flag
-      int resamp = (int)IN0(5);
-      CONSTRAIN(resamp, 0, 2);
-      switch(resamp) {
-          case 0:
-              SETCALC(MiBraids_next);
-              //Print("resamp: OFF\n");
-              break;
-          case 1:
-              unit->pd.osc->Init(MI_SAMPLERATE);
-              SETCALC(MiBraids_next_resamp);
-              Print("MiBraids: internal sr: 96kHz - resamp: ON\n");
-              break;
-          case 2:
-              SETCALC(MiBraids_next_reduc);
-              Print("MiBraids: resamp: OFF, reduction: ON\n");
-              break;
-      }
-  */
 }
 
 const braids::SettingsData kInitSettings = {
