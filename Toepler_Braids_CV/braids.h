@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #pragma once
 
 // braids dsp
@@ -33,7 +34,7 @@ const size_t   kBlockSize = BLOCK_SIZE;
 struct Unit {
   braids::Quantizer   *quantizer;
   braids::SignatureWaveshaper *ws;
-  //braids::Envelope *envelope;
+  braids::Envelope *envelope;
 
   bool            last_trig;
   // resampler
@@ -66,14 +67,23 @@ float morph_mod = 0.0f; //IN(9);
 float decay_in = 0.5f; // IN(10);
 float lpg_in = 0.1f ;// IN(11);
 
-void updateBraidsAudio() {
+uint8_t SETTING_AD_ATTACK = 2;
+uint8_t SETTING_AD_DECAY = 7;
 
+
+void updateBraidsAudio() {
+  static uint16_t gain_lp;
   int16_t *buffer = voices[0].pd.buffer;
   uint8_t *sync_buffer = voices[0].pd.sync_buffer;
   size_t  size = BLOCK_SIZE;
 
+  voices[0].envelope->Update(
+    SETTING_AD_ATTACK * 8,
+    SETTING_AD_DECAY * 8
+  );
+  uint32_t ad_value = voices[0].envelope->Render();
+
   braids::MacroOscillator *osc = voices[0].pd.osc;
-  
   osc->set_pitch( pitch_in << 7);
   osc->set_parameters(timbre_in, morph_in);
 
@@ -89,10 +99,20 @@ void updateBraidsAudio() {
 
   if (trigger) {
     osc->Strike();
+    voices[0].envelope->Trigger(braids::ENV_SEGMENT_ATTACK);
     trigger_in = 0.0f;
   }
 
   osc->Render(sync_buffer, buffer, size);
+
+  int32_t gain = ad_value;
+
+  for (size_t i = 0; i < kBlockSize; ++i) {
+    int16_t sample = buffer[i] * gain_lp >> 16;
+    gain_lp += (gain - gain_lp) >> 4;
+    buffer[i] = sample;
+  }
+
 }
 
 // initialize macro osc
@@ -123,8 +143,8 @@ void initVoices() {
 
   voices[0].last_trig = false;
 
-  //voices[0].envelope = new braids::Envelope;
-  //voices[0].envelope->Init();
+  voices[0].envelope = new braids::Envelope;
+  voices[0].envelope->Init();
 
   // get some samples initially
   updateBraidsAudio();
@@ -137,7 +157,7 @@ const braids::SettingsData kInitSettings = {
   braids::SAMPLE_RATE_96K,
 
   0,  // AD->timbre
-  true,  // Trig source auto trigger
+  false,  // Trig source auto trigger
   1,  // Trig delay
   false,  // Meta modulation
 
@@ -149,11 +169,11 @@ const braids::SettingsData kInitSettings = {
   false,
 
   2,  // Brightness
-  0,  // AD attack
-  5,  // AD decay
+  SETTING_AD_ATTACK,  // AD attack
+  SETTING_AD_DECAY,  // AD decay
   0,  // AD->FM
   0,  // AD->COLOR
-  0,  // AD->VCA
+  1,  // AD->VCA
   0,  // Quantizer root
 
   50,

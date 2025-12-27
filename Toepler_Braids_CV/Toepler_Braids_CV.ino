@@ -107,9 +107,8 @@ void voct_midi(int cv_in) {
 
   pitch_in = pitch;
   if (pitch != previous_pitch) {
-    trigger_in = 0.0f;
+    trigger_in = 1.0f;
     previous_pitch = pitch;
-    trigger_in = 1.0f;  //retain for cv only input?
   }
 }
 
