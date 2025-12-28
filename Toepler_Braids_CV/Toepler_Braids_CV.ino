@@ -26,14 +26,14 @@ Adafruit_NeoPixel strip(2, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 #include "potentiometer.h"
 
 float pitch;
-float pitch_offset = 38;
+float pitch_offset = 36;
 float freq;
 
 float max_voltage_of_adc = 3.3;
 float voltage_division_ratio = 0.3333333333333;
 float notes_per_octave = 12;
 float volts_per_octave = 1;
-float mapping_upper_limit = 120;  // (max_voltage_of_adc / voltage_division_ratio) * notes_per_octave * volts_per_octave;
+float mapping_upper_limit = 120.0;  // (max_voltage_of_adc / voltage_division_ratio) * notes_per_octave * volts_per_octave;
 float mapping_lower_limit = 0.0;
 
 #include <hardware/pwm.h>
@@ -76,6 +76,10 @@ volatile int counter = 0;
 // Init RPI_PICO_Timer, can use any from 0-15 pseudo-hardware timers
 RPI_PICO_Timer ITimer0(0);
 
+
+int favoriteEngines[] = { 1, 3, 4, 7, 8, 10, 14, 17, 28, 32, 33, 34, 35, 37, 40, 41, 42, 46 };
+const int numFavoriteEngines = sizeof(favoriteEngines) / sizeof(int);
+
 bool TimerHandler0(struct repeating_timer *t) {
   (void)t;
   bool sync = true;
@@ -98,11 +102,8 @@ void cb() {
 }
 
 void voct_midi(int cv_in) {
-  pitch = map(potvalue[cv_in], 0.0, 4095.0, mapping_upper_limit, 0.0);  // convert pitch CV data value to a MIDI note number
-  pitch = pitch - pitch_offset;  // pitch offset drops this octaves down
-
-  if (pitch > 68) 
-    pitch = pitch - 1;  //adc correction
+  pitch = map(potvalue[cv_in], 0.0, 4095.0, mapping_upper_limit, mapping_lower_limit);  // convert pitch CV data value to a MIDI note number
+  pitch = pitch - pitch_offset;                                         // pitch offset drops this octaves down
 
   pitch_in = pitch;
   if (pitch != previous_pitch) {
@@ -120,7 +121,7 @@ void setup() {
 
   strip.begin();
   strip.setBrightness(50);
-  strip.setPixelColor(0, strip.Color(engineCount * 5, 0, 255 - (engineCount * 5)));
+  setEngineIndicator();
   strip.setPixelColor(1, strip.Color(255 * autoTrigger, 0, 255 * autoTrigger));
   strip.show();
 
@@ -149,6 +150,8 @@ void setup() {
   } else {
     if (debug) Serial.println(F("Can't set ITimer0. Select another freq. or timer"));
   }
+
+  engine_in = favoriteEngines[engineCount];
 
   // set up Pico PWM audio output
   DAC.setBuffers(4, 32);  // plaits::kBlockSize); // DMA buffers
@@ -212,11 +215,12 @@ void loop1() {
     } else {
       // short press
       engineCount++;
-      if (engineCount > 46) {
+      if (engineCount >= numFavoriteEngines) {
         engineCount = 0;
       }
-      engine_in = engineCount;
-      strip.setPixelColor(0, strip.Color(engineCount * 5, 0, 255 - (engineCount * 5)));
+      engine_in = favoriteEngines[engineCount];
+      Serial.println(engineCount);
+      setEngineIndicator();
       strip.show();
     }
   }
@@ -229,4 +233,10 @@ void loop1() {
 
     pot_timer = now;
   }
+}
+
+const int brightnessIncrements = 255 / numFavoriteEngines;
+
+void setEngineIndicator() {
+  strip.setPixelColor(0, strip.Color(engineCount * brightnessIncrements, 0, 255 - (engineCount * brightnessIncrements)));
 }
