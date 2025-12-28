@@ -1,8 +1,8 @@
+#include <sys/types.h>
 #pragma once
 
 // braids dsp
 
-//const uint16_t decimation_factors[] = { 1, 2, 3, 4, 6, 12, 24 };
 const uint16_t bit_reduction_masks[] = {
   0xffff,
   0xfff0,
@@ -34,7 +34,7 @@ const size_t kBlockSize = BLOCK_SIZE;
 struct Unit {
   braids::Quantizer *quantizer;
   braids::SignatureWaveshaper *ws;
-  //braids::Envelope *envelope;
+  braids::Envelope *envelope;
 
   bool last_trig;
 
@@ -65,11 +65,12 @@ float morph_mod = 0.0f;  //IN(9);
 float decay_in = 0.5f;   // IN(10);
 float lpg_in = 0.1f;     // IN(11);
 
+uint8_t SETTING_AD_ATTACK = 2;
+uint8_t SETTING_AD_DECAY = 7;
 
 
 void updateBraidsAudio() {
-  static int32_t gain_lp;
-  static uint32_t last_segment = 99;
+  static uint16_t gain_lp;
   int16_t *buffer = voices[0].pd.buffer;
   uint8_t *sync_buffer = voices[0].pd.sync_buffer;
   size_t size = BLOCK_SIZE;
@@ -106,11 +107,10 @@ void updateBraidsAudio() {
     muted = false;
   } else if (trigger && autoTrigger) {
     osc->Strike();
+    voices[0].envelope->Trigger(braids::ENV_SEGMENT_ATTACK);
     trigger_in = 0.0f;
   }
-  
-  // render
-  //for (int count = 0; count < 32; count += size) {
+
   osc->Render(sync_buffer, buffer, size);
 
   int32_t gain;
@@ -123,8 +123,8 @@ void updateBraidsAudio() {
   }
 
   for (size_t i = 0; i < kBlockSize; ++i) {
-    gain_lp += (gain - gain_lp) >> 4;
     int16_t sample = buffer[i] * gain_lp >> 16;
+    gain_lp += (gain - gain_lp) >> 4;
     buffer[i] = sample;
   }
 }
@@ -142,7 +142,6 @@ void initVoices() {
   voices[0].pd.osc->set_pitch((48 << 7));
   voices[0].pd.osc->set_shape(braids::MACRO_OSC_SHAPE_VOWEL_FOF);
 
-
   voices[0].ws = new braids::SignatureWaveshaper;
   voices[0].ws->Init(123774);
 
@@ -158,37 +157,11 @@ void initVoices() {
 
   voices[0].last_trig = false;
 
-  //voices[0].envelope = new braids::Envelope;
-  //voices[0].envelope->Init();
+  voices[0].envelope = new braids::Envelope;
+  voices[0].envelope->Init();
 
   // get some samples initially
   updateBraidsAudio();
-
-  /*
-    // Initialize the sample rate converter
-    int error;
-    int converter = SRC_SINC_FASTEST;       //SRC_SINC_MEDIUM_QUALITY;
-
-
-         // check resample flag
-      int resamp = (int)IN0(5);
-      CONSTRAIN(resamp, 0, 2);
-      switch(resamp) {
-          case 0:
-              SETCALC(MiBraids_next);
-              //Print("resamp: OFF\n");
-              break;
-          case 1:
-              unit->pd.osc->Init(MI_SAMPLERATE);
-              SETCALC(MiBraids_next_resamp);
-              Print("MiBraids: internal sr: 96kHz - resamp: ON\n");
-              break;
-          case 2:
-              SETCALC(MiBraids_next_reduc);
-              Print("MiBraids: resamp: OFF, reduction: ON\n");
-              break;
-      }
-  */
 }
 
 const braids::SettingsData kInitSettings = {
