@@ -14,17 +14,19 @@
 
 */
 bool debug = false;
+bool autoTrigger = true;
+bool waitForMute = false;
+bool muted = false;
+
+#include <Adafruit_NeoPixel.h>
+Adafruit_NeoPixel strip(2, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 #include <Arduino.h>
 #include "stdio.h"
 #include "pico/stdlib.h"
 #include "hardware/sync.h"
 #include "potentiometer.h"
-
-//#include <MIDI.h>
-//#include <mozzi_midi.h>
-
-long midiTimer;
+#include <EEPROM.h>
 
 float pitch;
 //float pitch_offset = 4;
@@ -71,7 +73,7 @@ PWMAudio DAC(PWMOUT);  // 16 bit PWM audio
 
 
 
-int engineCount = 0;
+uint8_t engineCount = 0;
 int engineInc = 0;
 
 // clock timer  stuff
@@ -165,10 +167,17 @@ void setup() {
 
   if (debug) {
     Serial.begin(57600);
+    delay(2000);
     Serial.println(F("YUP"));
   }
-  //Serial1.begin(9600);
-  
+
+  EEPROM.begin(256);  // Initialize EEPROM emulation
+
+  strip.begin();
+  strip.setBrightness(100);
+
+  delay(10);
+
   analogReadResolution(12);
   // thi is to switch to PWM for power to avoid ripple noise
   pinMode(23, OUTPUT);
@@ -200,6 +209,19 @@ void setup() {
     if (debug) Serial.println(F("Can't set ITimer0. Select another freq. or timer"));
   }
 
+  // Load saved values from EEPROM
+  autoTrigger = EEPROM.read(0);
+  engineCount = EEPROM.read(1);
+  if (engineCount > 46) engineCount = 0;  // Ensure engineCount stays within valid range
+  engine_in = engineCount;
+
+  Serial.println(autoTrigger);
+  Serial.println(engineCount);
+
+  // Update LED strip based on loaded values
+  strip.setPixelColor(0, strip.Color(engineCount * 5, 0, 255 - (engineCount * 5)));
+  strip.setPixelColor(1, strip.Color(255 * autoTrigger, 0, 255 * autoTrigger));
+  strip.show();
 
   // set up Pico PWM audio output
   DAC.setBuffers(4, 32); // plaits::kBlockSize); // DMA buffers
@@ -245,7 +267,10 @@ void loop() {
 // second core dedicated to display foo
 
 void setup1() {
-  delay (200); // wait for main core to start up perhipherals
+  delay(200);  // wait for main core to start up perhipherals
+  if (debug) {
+    delay(2000);
+  }
 }
 
 
@@ -271,12 +296,43 @@ void loop1() {
 
 
   button.update();
-  if ( button.pressed() ) {
-    engineCount ++;
-    if (engineCount > 46) {
-      engineCount = 0;
+
+  if (button.read() == 0) {
+    if (button.currentDuration() > 1000) {
+      longPress = true;
     }
-    engine_in = engineCount;
+  }
+
+  if (button.released()) {
+    if (longPress) {
+      // long press
+      longPress = false;
+      autoTrigger = !autoTrigger;
+      strip.setPixelColor(1, strip.Color(255 * autoTrigger, 0, 255 * autoTrigger));
+      strip.show();
+      EEPROM.write(0, autoTrigger);
+      muted = false;
+      waitForMute = true;
+    } else {
+      // short press
+      engineCount++;
+      if (engineCount > 46) {
+        engineCount = 0;
+      }
+      engine_in = engineCount;
+      strip.setPixelColor(0, strip.Color(engineCount * 5, 0, 255 - (engineCount * 5)));
+      strip.show();
+      EEPROM.write(1, engineCount);
+      
+      muted = false;
+      waitForMute = true;
+
+    }
+  }
+
+  if (waitForMute && muted) {
+    EEPROM.commit();
+    waitForMute = false;
   }
 
   // reading A/D seems to cause noise in the audio so don't do it too often
