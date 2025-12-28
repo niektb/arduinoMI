@@ -1,21 +1,21 @@
 [submodule "STMLIB"]
 	path = STMLIB
-	url = git@github.com:poetaster/STMLIB.git
+	url = https://github.com/poetaster/STMLIB.git
 [submodule "PLAITS"]
 	path = PLAITS
-	url = git@github.com:poetaster/PLAITS.git
+	url = https://github.com/poetaster/PLAITS.git
 [submodule "BRAIDS"]
 	path = BRAIDS
-	url = git@github.com:poetaster/BRAIDS.git
+	url = https://github.com/poetaster/BRAIDS.git
 [submodule "TIDES"]
 	path = TIDES
-	url = git@github.com:poetaster/TIDES.git
+	url = https://github.com/poetaster/TIDES.git
 [submodule "ELEMENTS"]
 	path = ELEMENTS
-	url = git@github.com:poetaster/ELEMENTS.git
+	url = https://github.com/poetaster/ELEMENTS.git
 [submodule "CLOUDS"]
 	path = CLOUDS
-	url = git@github.com:poetaster/CLOUDS.git
+	url = https://github.com/poetaster/CLOUDS.git
 [submodule "RINGS"]
 	path = RINGS
-	url = git@github.com:poetaster/RINGS.git
+	url = https://github.com/poetaster/RINGS.git
